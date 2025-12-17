@@ -1,0 +1,179 @@
+{% extends 'blog/base.html' %}
+{% load static %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2 class="mb-4">📊 금연 추세</h2>
+        
+        <!-- 기간 선택 버튼 -->
+        <div class="card mb-4">
+            <div class="card-body">
+                <div class="btn-group w-100" role="group" id="periodButtons">
+                    <button type="button" class="btn btn-primary active" data-period="hourly">시간별</button>
+                    <button type="button" class="btn btn-outline-primary" data-period="daily">요일별</button>
+                    <button type="button" class="btn btn-outline-primary" data-period="monthly">30일간</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 그래프 -->
+        <div class="card">
+            <div class="card-body">
+                <canvas id="trendChart" height="100"></canvas>
+            </div>
+        </div>
+        
+        <!-- 통계 정보 -->
+        <div class="card mt-4">
+            <div class="card-body">
+                <h5 class="card-title">통계 정보</h5>
+                <div id="statistics" class="row">
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 id="totalCount" class="text-primary">0</h3>
+                            <p class="text-muted">총 기록</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 id="avgCount" class="text-success">0</h3>
+                            <p class="text-muted">평균</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 id="maxCount" class="text-danger">0</h3>
+                            <p class="text-muted">최대</p>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="text-center">
+                            <h3 id="minCount" class="text-info">0</h3>
+                            <p class="text-muted">최소</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+let trendChart = null;
+let currentPeriod = 'hourly';
+
+function loadChart(period) {
+    currentPeriod = period;
+    
+    // 버튼 상태 업데이트
+    document.querySelectorAll('#periodButtons button').forEach(btn => {
+        if (btn.dataset.period === period) {
+            btn.classList.remove('btn-outline-primary');
+            btn.classList.add('active', 'btn-primary');
+        } else {
+            btn.classList.remove('active', 'btn-primary');
+            btn.classList.add('btn-outline-primary');
+        }
+    });
+    
+    // API 호출
+    fetch(`/api/trend-data/?period=${period}`)
+        .then(response => response.json())
+        .then(data => {
+            updateChart(data);
+            updateStatistics(data);
+        })
+        .catch(error => {
+            console.error('Error:', error);
+        });
+}
+
+// 버튼 클릭 이벤트 리스너
+document.addEventListener('DOMContentLoaded', function() {
+    document.querySelectorAll('#periodButtons button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            loadChart(this.dataset.period);
+        });
+    });
+});
+
+function updateChart(data) {
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    
+    // 기존 차트 제거
+    if (trendChart) {
+        trendChart.destroy();
+    }
+    
+    const chartType = currentPeriod === 'monthly' ? 'line' : 'bar';
+    
+    trendChart = new Chart(ctx, {
+        type: chartType,
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: '흡연 횟수',
+                data: data.values,
+                backgroundColor: currentPeriod === 'monthly' 
+                    ? 'rgba(98, 0, 238, 0.2)' 
+                    : 'rgba(98, 0, 238, 0.6)',
+                borderColor: 'rgba(98, 0, 238, 1)',
+                borderWidth: 2,
+                fill: currentPeriod === 'monthly',
+                tension: currentPeriod === 'monthly' ? 0.4 : 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: true,
+            plugins: {
+                legend: {
+                    display: false
+                },
+                tooltip: {
+                    mode: 'index',
+                    intersect: false
+                }
+            },
+            scales: {
+                y: {
+                    beginAtZero: true,
+                    ticks: {
+                        stepSize: 1
+                    }
+                },
+                x: {
+                    ticks: {
+                        maxRotation: 45,
+                        minRotation: 45
+                    }
+                }
+            }
+        }
+    });
+}
+
+function updateStatistics(data) {
+    const values = data.values;
+    const total = values.reduce((a, b) => a + b, 0);
+    const avg = values.length > 0 ? (total / values.length).toFixed(1) : 0;
+    const max = Math.max(...values);
+    const min = Math.min(...values.filter(v => v > 0)) || 0;
+    
+    document.getElementById('totalCount').textContent = total;
+    document.getElementById('avgCount').textContent = avg;
+    document.getElementById('maxCount').textContent = max;
+    document.getElementById('minCount').textContent = min;
+}
+
+// 페이지 로드 시 시간별 차트 로드
+window.addEventListener('DOMContentLoaded', function() {
+    // 버튼 이벤트는 위에서 이미 설정됨
+    loadChart('hourly');
+});
+</script>
+{% endblock %}
+

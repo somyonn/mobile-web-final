@@ -1,14 +1,143 @@
 {% extends 'blog/base.html' %}
+{% load static %}
+
 {% block content %}
-{% for post in posts %}
-<div class="post">
-  <div class="date">
-    {{ post.published_date }}
-  </div>
-  <h1><a href="">{{ post.title }}</a></h1>
-  <p>{{ post.text|linebreaksbr }}</p>
-  <!-- blog image -->
-  <img src="{{ post.image.url }}" class="rounded blog-image-list" alt="{{ post.title }}">
+<!-- 히어로 섹션 -->
+<div class="hero-section text-center py-5 mb-5" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 15px; color: white;">
+    <div class="container">
+        <h1 class="display-4 fw-bold mb-4">🚭 나의 금연일지</h1>
+        <p class="lead mb-4">가만히 있어도 성공하는 세상에서 가장 쉬운 도전</p>
+        {% if days_count > 0 %}
+        <div class="badge bg-light text-dark fs-5 px-4 py-2">
+            금연 {{ days_count }}일차! 파이팅 💪
+        </div>
+        {% endif %}
+    </div>
 </div>
-{% endfor %}
+
+<!-- 주요 기능 소개 -->
+<div class="row mb-5">
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <div class="mb-3" style="font-size: 3rem;">📊</div>
+                <h4 class="card-title">흡연 시간 및 횟수 추적</h4>
+                <p class="card-text text-muted">
+                    시간별, 요일별, 일별로 흡연 패턴을 분석하여 
+                    사용자의 금연 의지를 고무시킵니다.
+                </p>
+                <a href="{% url 'trends' %}" class="btn btn-primary">추세 보기</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <div class="mb-3" style="font-size: 3rem;">📸</div>
+                <h4 class="card-title">사진 갤러리</h4>
+                <p class="card-text text-muted">
+                    년/월/일별로 필터링하여 
+                    흡연 감지 시점의 사진을 확인할 수 있습니다.
+                </p>
+                <a href="{% url 'photo_gallery' %}" class="btn btn-primary">갤러리 보기</a>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4 mb-4">
+        <div class="card h-100 shadow-sm border-0">
+            <div class="card-body text-center p-4">
+                <div class="mb-3" style="font-size: 3rem;">🤖</div>
+                <h4 class="card-title">자동 감지 시스템</h4>
+                <p class="card-text text-muted">
+                    YOLOv5 AI 모델을 활용한 
+                    실시간 객체 감지로 흡연 습관을 자동으로 추적합니다.
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 문제 인식 섹션 -->
+<div class="alert alert-info border-0 shadow-sm mb-5" role="alert">
+    <div class="row align-items-center">
+        <div class="col-md-2 text-center">
+            <div style="font-size: 4rem;">💭</div>
+        </div>
+        <div class="col-md-10">
+            <h4 class="alert-heading">흡연 습관을 스스로 관리하기는 쉽지 않음</h4>
+            <p class="mb-0">
+                하지만 이제는 다릅니다. AI 기반 자동 감지 시스템과 시각화된 데이터를 통해 
+                금연 여정을 체계적으로 관리하고 동기부여를 받을 수 있습니다.
+            </p>
+        </div>
+    </div>
+</div>
+
+<!-- 통계 정보 -->
+<div class="row mb-5">
+    <div class="col-12">
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h3 class="card-title mb-4">📈 현재 통계</h3>
+                <div class="row text-center">
+                    <div class="col-md-4">
+                        <h2 class="text-primary">{{ total_posts }}</h2>
+                        <p class="text-muted">총 기록 수</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="text-success">{{ days_count }}</h2>
+                        <p class="text-muted">금연 일수</p>
+                    </div>
+                    <div class="col-md-4">
+                        <h2 class="text-info">
+                            {% if days_count > 0 %}
+                                {{ total_posts|floatformat:0|add:"0"|floatformat:1|default:"0" }}
+                            {% else %}
+                                0
+                            {% endif %}
+                        </h2>
+                        <p class="text-muted">일평균 기록</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 최근 사진 미리보기 -->
+{% if recent_posts %}
+<div class="row mb-5">
+    <div class="col-12">
+        <h3 class="mb-4">📷 최근 기록</h3>
+        <div class="row">
+            {% for post in recent_posts %}
+            <div class="col-md-4 col-sm-6 mb-4">
+                <div class="card h-100 shadow-sm">
+                    <img src="{{ post.image.url }}" class="card-img-top" alt="{{ post.title }}" style="height: 200px; object-fit: cover;">
+                    <div class="card-body">
+                        <h6 class="card-title">{{ post.title }}</h6>
+                        <p class="card-text text-muted small">
+                            {{ post.published_date|date:"Y년 m월 d일 H:i" }}
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="text-center mt-4">
+            <a href="{% url 'photo_gallery' %}" class="btn btn-outline-primary btn-lg">전체 사진 보기</a>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- CTA 섹션 -->
+<div class="text-center py-5" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%); border-radius: 15px; color: white;">
+    <h2 class="mb-3">금연의 여정을 시작하세요</h2>
+    <p class="lead mb-4">AI 기반 자동 감지와 시각화된 데이터로<br>금연을 더 쉽고 체계적으로 관리하세요</p>
+    <a href="{% url 'photo_gallery' %}" class="btn btn-light btn-lg me-2">사진 갤러리</a>
+    <a href="{% url 'trends' %}" class="btn btn-outline-light btn-lg">금연 추세</a>
+</div>
 {% endblock %}
