@@ -9,8 +9,8 @@
         <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
         <option name="modules">
           <set>
-            <option value="$PROJECT_DIR$/../../../../../모바일웹/중간과제/ROOT/PhotoViewer/HelloAndroid" />
-            <option value="$PROJECT_DIR$/../../../../../모바일웹/중간과제/ROOT/PhotoViewer/HelloAndroid/app" />
+            <option value="$PROJECT_DIR$/../../../../../모바일웹/기말과제/mobile-web-final/PhotoViewer/HelloAndroid" />
+            <option value="$PROJECT_DIR$/../../../../../모바일웹/기말과제/mobile-web-final/PhotoViewer/HelloAndroid/app" />
           </set>
         </option>
       </GradleProjectSettings>

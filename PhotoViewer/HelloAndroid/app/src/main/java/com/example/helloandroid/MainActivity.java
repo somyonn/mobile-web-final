@@ -1,27 +1,12 @@
 package com.example.helloandroid;
 
-import android.Manifest;
-import android.app.AlertDialog;
 import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.database.Cursor;
-import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.Color;
-import android.net.Uri;
 import android.os.AsyncTask;
 import android.os.Bundle;
-import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
-import android.widget.LinearLayout;
-import android.widget.Switch;
 import android.widget.TextView;
 import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.app.ActivityCompat;
-import androidx.core.content.ContextCompat;
-import androidx.recyclerview.widget.LinearLayoutManager;
-import androidx.recyclerview.widget.RecyclerView;
 
 import org.json.JSONArray;
 import org.json.JSONException;
@@ -33,200 +18,145 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
-import java.util.ArrayList;
-import java.util.List;
-import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
+import java.text.SimpleDateFormat;
+import java.util.Calendar;
+import java.util.Date;
+import java.util.Locale;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final int MY_PERMISSIONS_REQUEST_WRITE_EXTERNAL_STORAGE = 1;
-    TextView textView;
-    JSONObject post_json;
-    String imageUrl = null;
-    RecyclerView recyclerView;
-    CloadImage taskDownload;
-//    private String site_url = "http://10.0.2.2:8000";
+    private TextView dayCountTextView;
     private String site_url = "https://somyonn.pythonanywhere.com";
-    public String getRealPathFromURI(Uri contentUri) {
-        String result = null;
-        String[] proj = { MediaStore.Images.Media.DATA };
-        Cursor cursor = getContentResolver().query(contentUri, proj, null, null, null);
-        if (cursor != null) {
-            if (cursor.moveToFirst()) {
-                int column_index = cursor.getColumnIndexOrThrow(MediaStore.Images.Media.DATA);
-                result = cursor.getString(column_index);
-            }
-            cursor.close();
-        }
-        return result;
-    }
-
-    //dark mode
-    LinearLayout rootLayout;
-    Switch switchToggleBg;
-    //swipe refresh
-    SwipeRefreshLayout swipeRefreshLayout;
+    private String token = "***REMOVED***";
+    private LoadDayCount taskLoadDayCount;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        rootLayout = findViewById(R.id.rootLayout);
-        switchToggleBg = findViewById(R.id.switchToggleBg);
+        dayCountTextView = findViewById(R.id.dayCountTextView);
+        
+        // 금연 일차 로드
+        loadDayCount();
+    }
 
-        switchToggleBg.setOnCheckedChangeListener((buttonView, isChecked) -> {
-            if (isChecked) {
-                rootLayout.setBackgroundColor(Color.BLACK);
-            } else {
-                rootLayout.setBackgroundColor(Color.WHITE);
+    @Override
+    protected void onResume() {
+        super.onResume();
+        // 화면이 다시 보일 때마다 일차 업데이트
+        loadDayCount();
+    }
+
+    private void loadDayCount() {
+        if (taskLoadDayCount != null && taskLoadDayCount.getStatus() == AsyncTask.Status.RUNNING) {
+            taskLoadDayCount.cancel(true);
+        }
+        taskLoadDayCount = new LoadDayCount();
+        taskLoadDayCount.execute();
+    }
+
+    private Date parseDate(String dateStr) {
+        if (dateStr == null || dateStr.isEmpty()) {
+            return null;
+        }
+        
+        String[] formats = {
+            "yyyy-MM-dd'T'HH:mm:ss",
+            "yyyy-MM-dd'T'HH:mm:ss.SSS",
+            "yyyy-MM-dd'T'HH:mm:ss'Z'",
+            "yyyy-MM-dd HH:mm:ss",
+            "yyyy-MM-dd"
+        };
+        
+        for (String format : formats) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat(format, Locale.getDefault());
+                return sdf.parse(dateStr);
+            } catch (Exception e) {
+                // 다음 형식 시도
             }
-        });
-
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-            ActivityCompat.requestPermissions(this,
-                    new String[]{Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
         }
-
-        swipeRefreshLayout = findViewById(R.id.swipeRefresh);
-
-        textView = findViewById(R.id.textView);
-        recyclerView = findViewById(R.id.recyclerView);
-        recyclerView.setLayoutManager(new LinearLayoutManager(this));
-        recyclerView.setAdapter(new ImageAdapter(new ArrayList<>()));
-
-        swipeRefreshLayout.setOnRefreshListener(() -> {
-            onClickDownload(null);  // 스와이프 리프레시 시 동기화 메서드 호출
-        });
-
-        new AlertDialog.Builder(this)
-                .setTitle("도움말")
-                .setMessage("앱 사용에 도움이 필요하면 여기를 참고하세요.\n- 이미지 클릭 시 저장 가능\n- 동기화는 화면을 아래로 당기기나 버튼 클릭\n...")
-                .setPositiveButton("확인", (dialog, which) -> dialog.dismiss())
-                .setCancelable(false)
-                .show();
-
-        onClickDownload(null);
+        
+        if (dateStr.length() >= 10) {
+            try {
+                SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
+                return sdf.parse(dateStr.substring(0, 10));
+            } catch (Exception e) {
+                // 실패
+            }
+        }
+        
+        return null;
     }
 
-    public void onClickDownload(View v) {
-        if (taskDownload != null && taskDownload.getStatus() == AsyncTask.Status.RUNNING) {
-            taskDownload.cancel(true);
+    private void updateDayCount(JSONArray jsonArray) {
+        try {
+            Date earliestDate = null;
+            Calendar calendar = Calendar.getInstance();
+            
+            // 모든 포스트를 확인하여 가장 오래된 날짜 찾기
+            for (int i = 0; i < jsonArray.length(); i++) {
+                JSONObject post = jsonArray.getJSONObject(i);
+                String dateStr = post.optString("published_date", post.optString("created_date", ""));
+                Date postDate = parseDate(dateStr);
+                
+                if (postDate != null) {
+                    if (earliestDate == null || postDate.before(earliestDate)) {
+                        earliestDate = postDate;
+                    }
+                }
+            }
+            
+            int dayCount = 0;
+            if (earliestDate != null) {
+                // 가장 오래된 날짜부터 오늘까지의 일수 계산
+                calendar.setTime(earliestDate);
+                calendar.set(Calendar.HOUR_OF_DAY, 0);
+                calendar.set(Calendar.MINUTE, 0);
+                calendar.set(Calendar.SECOND, 0);
+                calendar.set(Calendar.MILLISECOND, 0);
+                long startTime = calendar.getTimeInMillis();
+                
+                Calendar today = Calendar.getInstance();
+                today.set(Calendar.HOUR_OF_DAY, 0);
+                today.set(Calendar.MINUTE, 0);
+                today.set(Calendar.SECOND, 0);
+                today.set(Calendar.MILLISECOND, 0);
+                long endTime = today.getTimeInMillis();
+                
+                // 일수 차이 계산 (밀리초를 일로 변환)
+                dayCount = (int) ((endTime - startTime) / (1000 * 60 * 60 * 24));
+            }
+            
+            // TextView 업데이트
+            dayCountTextView.setText("금연 " + dayCount + "일차! 파이팅 💪");
+            
+        } catch (JSONException e) {
+            Log.e("MainActivity", "Error parsing data", e);
+            dayCountTextView.setText("금연 0일차! 파이팅 💪");
         }
-        taskDownload = new CloadImage();
-        taskDownload.execute(site_url + "/api_root/Post/");
-        textView.setText("다운로드 중...");
-        swipeRefreshLayout.setRefreshing(true);
     }
 
-    private void stopRefreshing() {
-        if (swipeRefreshLayout.isRefreshing()) {
-            swipeRefreshLayout.setRefreshing(false);
-        }
-    }
-
-    public void onClickUpload(View v) {
-        Intent intent = new Intent(this, UploadActivity.class);
+    public void onClickRecord(View v) {
+        // 금연기록 화면으로 이동
+        Intent intent = new Intent(this, ImageListActivity.class);
         startActivity(intent);
     }
-//  기존 localhost때 적용
-//    private class CloadImage extends AsyncTask<String, Void, List<Bitmap>> {
-//        @Override
-//        protected List<Bitmap> doInBackground(String... urls) {
-//            List<Bitmap> bitmapList = new ArrayList<>();
-//
-//            try {
-//                String apiUrl = urls[0];
-//                // localhost token
-////              String token = "***REMOVED***";
-//                // pythonanywhere token
-//                String token = "***REMOVED***";
-//                URL urlAPI = new URL(apiUrl);
-//                HttpURLConnection conn = (HttpURLConnection) urlAPI.openConnection();
-//                conn.setRequestProperty("Authorization", "Token " + token);
-//                conn.setRequestMethod("GET");
-//                conn.setConnectTimeout(3000);
-//                conn.setReadTimeout(3000);
-//
-//                int responseCode = conn.getResponseCode();
-//
-//                try {
-//                    InputStream errorStream = conn.getErrorStream();
-//                    if (errorStream != null) {
-//                        BufferedReader errorReader = new BufferedReader(new InputStreamReader(errorStream));
-//                        StringBuilder errorResult = new StringBuilder();
-//                        String line;
-//                        while ((line = errorReader.readLine()) != null) {
-//                            errorResult.append(line);
-//                        }
-//                        errorReader.close();
-//                        Log.e("API Error Response", errorResult.toString());
-//                    }
-//                } catch (IOException ioe) {
-//                    ioe.printStackTrace();
-//                }
-//
-//                Log.d("API Response Code", String.valueOf(responseCode));
-//                if (responseCode == HttpURLConnection.HTTP_OK) {
-//                    InputStream is = conn.getInputStream();
-//                    BufferedReader reader = new BufferedReader(new InputStreamReader(is));
-//                    StringBuilder result = new StringBuilder();
-//                    String line;
-//                    while ((line = reader.readLine()) != null) {
-//                        result.append(line);
-//                    }
-//                    is.close();
-//                    String strJson = result.toString();
-//
-//                    JSONObject jsonObj = new JSONObject(strJson);
-//                    JSONArray aryJson = jsonObj.getJSONArray("results");
-//                    for (int i = 0; i < aryJson.length(); i++){
-//                        post_json = (JSONObject) aryJson.get(i);
-//                        imageUrl = post_json.getString("image");
-//                        if (!imageUrl.equals("")) {
-//                            imageUrl = imageUrl.replace("127.0.0.1", "10.0.2.2");
-//                            URL myImageUrl = new URL(imageUrl);
-//                            HttpURLConnection imgConn = (HttpURLConnection) myImageUrl.openConnection();
-//                            InputStream imgStream = imgConn.getInputStream();
-//                            Bitmap imageBitmap = BitmapFactory.decodeStream(imgStream);
-//                            bitmapList.add(imageBitmap);
-//                            imgStream.close();
-//                            imgConn.disconnect();
-//                        }
-//                    }
-//
-//                }
-//            } catch (IOException | JSONException e) {
-//                e.printStackTrace();
-//            }
-//            return bitmapList;
-//        }
-//
-//        @Override
-//        protected void onPostExecute(List<Bitmap> images) {
-//            if (images.isEmpty()) {
-//                textView.setText("불러올 이미지가 없습니다.");
-//                recyclerView.setAdapter(null);
-//            } else {
-//                textView.setText("이미지 로드 성공!");
-//                ImageAdapter adapter = new ImageAdapter(images);
-//                recyclerView.setAdapter(adapter);
-//            }
-//        }
-//    }
-    private class CloadImage extends AsyncTask<String, Void, List<Bitmap>> {
+
+    public void onClickTrend(View v) {
+        // 금연추세 화면으로 이동
+        Intent intent = new Intent(this, TrendActivity.class);
+        startActivity(intent);
+    }
+
+    private class LoadDayCount extends AsyncTask<Void, Void, JSONArray> {
         @Override
-        protected List<Bitmap> doInBackground(String... urls) {
-            List<Bitmap> bitmapList = new ArrayList<>();
+        protected JSONArray doInBackground(Void... params) {
+            JSONArray jsonArray = new JSONArray();
 
             try {
-                String apiUrl = urls[0];
-                // localhost token
-                // String token = "***REMOVED***";
-                // pythonanywhere token
-                String token = "***REMOVED***";
-
+                String apiUrl = site_url + "/api_root/Post/";
                 URL urlAPI = new URL(apiUrl);
                 HttpURLConnection conn = (HttpURLConnection) urlAPI.openConnection();
                 conn.setRequestProperty("Authorization", "Token " + token);
@@ -235,24 +165,6 @@ public class MainActivity extends AppCompatActivity {
                 conn.setReadTimeout(3000);
 
                 int responseCode = conn.getResponseCode();
-
-                try {
-                    InputStream errorStream = conn.getErrorStream();
-                    if (errorStream != null) {
-                        BufferedReader errorReader = new BufferedReader(new InputStreamReader(errorStream));
-                        StringBuilder errorResult = new StringBuilder();
-                        String line;
-                        while ((line = errorReader.readLine()) != null) {
-                            errorResult.append(line);
-                        }
-                        errorReader.close();
-                        Log.e("API Error Response", errorResult.toString());
-                    }
-                } catch (IOException ioe) {
-                    ioe.printStackTrace();
-                }
-
-                Log.d("API Response Code", String.valueOf(responseCode));
                 if (responseCode == HttpURLConnection.HTTP_OK) {
                     InputStream is = conn.getInputStream();
                     BufferedReader reader = new BufferedReader(new InputStreamReader(is));
@@ -264,46 +176,21 @@ public class MainActivity extends AppCompatActivity {
                     is.close();
 
                     String strJson = result.toString();
-
-                    // 루트가 배열일 경우 JSONArray로 먼저 파싱
-                    JSONArray aryJson = new JSONArray(strJson);
-                    for (int i = 0; i < aryJson.length(); i++) {
-                        JSONObject post_json = aryJson.getJSONObject(i);
-
-                        // author 필드가 필요한 경우 서버에서 넘겨준 author 값을 로컬에 저장할 수도
-                        int author = post_json.optInt("author");
-
-                        String imageUrl = post_json.getString("image");
-                        if (!imageUrl.equals("")) {
-                            imageUrl = imageUrl.replace("127.0.0.1", "10.0.2.2");
-                            URL myImageUrl = new URL(imageUrl);
-                            HttpURLConnection imgConn = (HttpURLConnection) myImageUrl.openConnection();
-                            InputStream imgStream = imgConn.getInputStream();
-                            Bitmap imageBitmap = BitmapFactory.decodeStream(imgStream);
-                            bitmapList.add(imageBitmap);
-                            imgStream.close();
-                            imgConn.disconnect();
-                        }
-                    }
+                    jsonArray = new JSONArray(strJson);
                 }
             } catch (IOException | JSONException e) {
-                e.printStackTrace();
+                Log.e("MainActivity", "Error loading data", e);
             }
-            return bitmapList;
+            return jsonArray;
         }
 
         @Override
-        protected void onPostExecute(List<Bitmap> images) {
-            stopRefreshing();
-            if (images.isEmpty()) {
-                textView.setText("불러올 이미지가 없습니다.");
-                recyclerView.setAdapter(null);
+        protected void onPostExecute(JSONArray jsonArray) {
+            if (jsonArray != null) {
+                updateDayCount(jsonArray);
             } else {
-                textView.setText("이미지 로드 성공!");
-                ImageAdapter adapter = new ImageAdapter(images);
-                recyclerView.setAdapter(adapter);
+                dayCountTextView.setText("금연 0일차! 파이팅 💪");
             }
         }
     }
-
 }
