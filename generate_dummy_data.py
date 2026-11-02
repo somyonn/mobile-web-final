@@ -11,10 +11,15 @@ from pathlib import Path
 import os
 
 # 서버 설정
-HOST = 'https://somyonn.pythonanywhere.com'
-# HOST = 'http://127.0.0.1:8000'  # 로컬 테스트용
-username = '***REMOVED***'
-password = '***REMOVED***'
+try:
+    from dotenv import load_dotenv
+    load_dotenv(Path(__file__).resolve().parent / '.env', override=True)
+except ImportError:
+    pass
+
+HOST = os.environ.get('PHOTOBLOG_HOST', 'https://somyonn.pythonanywhere.com')
+username = os.environ.get('PHOTOBLOG_USER', '')
+password = os.environ.get('PHOTOBLOG_PASSWORD', '')
 
 # 인증 토큰 획득
 def get_token():

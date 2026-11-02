@@ -51,7 +51,7 @@ public class TrendActivity extends AppCompatActivity {
     private LineChart lineChart;
     private String currentPeriod = "시간별";
     private String site_url = "https://somyonn.pythonanywhere.com";
-    private String token = "***REMOVED***";
+    private String token = BuildConfig.API_TOKEN;
     private LoadTrendData taskLoadData;
 
     @Override

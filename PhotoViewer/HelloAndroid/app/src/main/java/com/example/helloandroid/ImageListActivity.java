@@ -186,7 +186,7 @@ public class ImageListActivity extends AppCompatActivity {
         protected JSONArray doInBackground(String... urls) {
             try {
                 String apiUrl = urls[0];
-                String token = "***REMOVED***";
+                String token = BuildConfig.API_TOKEN;
 
                 URL urlAPI = new URL(apiUrl);
                 HttpURLConnection conn = (HttpURLConnection) urlAPI.openConnection();

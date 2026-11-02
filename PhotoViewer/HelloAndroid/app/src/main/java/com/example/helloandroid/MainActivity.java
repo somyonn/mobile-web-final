@@ -27,7 +27,7 @@ public class MainActivity extends AppCompatActivity {
 
     private TextView dayCountTextView;
     private String site_url = "https://somyonn.pythonanywhere.com";
-    private String token = "***REMOVED***";
+    private String token = BuildConfig.API_TOKEN;
     private LoadDayCount taskLoadDayCount;
 
     @Override

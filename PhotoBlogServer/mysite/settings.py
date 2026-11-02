@@ -16,15 +16,22 @@ import os
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
 
+# 비밀값은 BASE_DIR/.env 에서 읽는다 (.env.example 참고, .env는 커밋하지 않음)
+try:
+    from dotenv import load_dotenv
+    load_dotenv(BASE_DIR / '.env', override=True)
+except ImportError:
+    pass
+
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = '***REMOVED***'
+SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "change-me-in-env")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
 
 ALLOWED_HOSTS = ['127.0.0.1', '.pythonanywhere.com', 'localhost', '10.0.2.2']
 

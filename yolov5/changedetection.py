@@ -5,14 +5,21 @@ import requests
 import time
 from datetime import datetime, timedelta
 
+# 저장소 루트 또는 yolov5 폴더의 .env 에서 설정을 읽는다 (.env는 커밋하지 않음)
+try:
+    from dotenv import load_dotenv
+    _here = pathlib.Path(__file__).resolve().parent
+    load_dotenv(_here.parent / '.env', override=True)
+    load_dotenv(_here / '.env', override=True)  # yolov5/.env가 있으면 그 값이 우선
+except ImportError:
+    pass
+
 class ChangeDetection:
     result_prev = []
-    # HOST = 'http://127.0.0.1:8000'
-    HOST = 'https://somyonn.pythonanywhere.com'
-    username = '***REMOVED***'
-    password = '***REMOVED***'
-    # token = '***REMOVED***'
-    token = '***REMOVED***'
+    HOST = os.environ.get('PHOTOBLOG_HOST', 'https://somyonn.pythonanywhere.com')
+    username = os.environ.get('PHOTOBLOG_USER', '')
+    password = os.environ.get('PHOTOBLOG_PASSWORD', '')
+    token = ''  # 로그인 응답으로 받는다
     title = ''
     text = ''
     last_send_time = None  # 마지막 전송 시간
@@ -30,7 +37,6 @@ class ChangeDetection:
         })
         res.raise_for_status()
         self.token = res.json()['token']  # 토큰 저장
-        print(self.token)
         print(f"초기화 완료. 시작 후 {self.initial_delay_seconds}초간은 전송하지 않습니다.")
 
     def add(self, names, detected_current, save_dir, image):

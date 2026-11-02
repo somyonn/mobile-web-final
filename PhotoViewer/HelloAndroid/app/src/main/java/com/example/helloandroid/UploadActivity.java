@@ -111,10 +111,7 @@ public class UploadActivity extends AppCompatActivity {
             String title = params[1];
             String text = params[2];
             String imagePath = params[3];
-            // localhost token
-//          String token = "***REMOVED***";
-            // pythonanywhere token
-            String token = "***REMOVED***";
+            String token = BuildConfig.API_TOKEN;
 
             String boundary = "*****" + Long.toString(System.currentTimeMillis()) + "*****";
             String lineEnd = "\r\n";
